@@ -1,15 +1,12 @@
 // swift-tools-version: 5.9
 // Binary-only SPM package. No source code is shipped — only an XCFramework zip.
 //
-// Maintainer release (from the private Indoor monorepo):
-//   scripts/build_xcframework.sh
-//   scripts/release_sdk.sh --url "https://github.com/Indoorly/Indoorly-iOS/releases/download/X.Y.Z/IndoorSDK.xcframework.zip" --version X.Y.Z
-//   Push Package.swift + README.md to this public repo; upload the zip on the GitHub Release.
+// Publish from the private monorepo: scripts/publish_sdk.sh
 import PackageDescription
 
-let version = "1.0.0"
+let version = "1.0.1"
 let releaseURL = "https://github.com/Indoorly/Indoorly-iOS/releases/download/\(version)/IndoorSDK.xcframework.zip"
-let releaseChecksum = "36858947d418d208f525fd83ef4d19d0f8fd98054d58f3abfbf2e1571b7cc37e"
+let releaseChecksum = "f7f49a8f54ed228b7a5138d20657e7f8ef799dbd96a28ef3ebfb7ae189172d3f"
 
 let binary: Target
 if let localPath = Context.environment["INDOOR_XCFRAMEWORK"], !localPath.isEmpty {
