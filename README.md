@@ -1,17 +1,17 @@
 # IndoorSDK
 
-Navegación indoor para tiendas: mapa, cámara AR y recorrido por destinos.  
-Este paquete es **binario** (XCFramework). No incluye código fuente del motor.
+Indoor store navigation: floor map, AR camera guidance, and multi-stop trips.  
+This package is **binary-only** (XCFramework). Engine source is not included.
 
-**Requisitos:** iOS 17+, Xcode 15+, Swift Package Manager.
+**Requirements:** iOS 17+, Xcode 15+, Swift Package Manager.
 
 ---
 
-## Instalación (SPM)
+## Install (SPM)
 
 1. Xcode → **File → Add Package Dependencies…**
-2. Pega la URL de este repositorio.
-3. Elige la versión (tag) y añade el producto **IndoorSDK** a tu target.
+2. Paste this repository URL.
+3. Pick a version (tag) and add the **IndoorSDK** product to your target.
 
 ```swift
 dependencies: [
@@ -19,35 +19,35 @@ dependencies: [
 ]
 ```
 
-### Info.plist de tu app
+### App Info.plist
 
-| Clave | Cuándo |
+| Key | When |
 | --- | --- |
-| `NSCameraUsageDescription` | Navegación / levantamiento con cámara |
-| `NSMotionUsageDescription` | Rumbo del dispositivo |
-| `NSLocationWhenInUseUsageDescription` | Solo si usas filtro de tiendas cercanas (GPS) |
+| `NSCameraUsageDescription` | Navigation / walking survey with camera |
+| `NSMotionUsageDescription` | Device heading |
+| `NSLocationWhenInUseUsageDescription` | Only if you filter nearby stores (GPS) |
 
 ---
 
-## Arranque rápido
+## Quick start
 
-El token lo emite el panel Indoorly (**Comercios** → API Token `pk_…` para visitantes).
+Tokens are issued in the Indoorly admin panel (**Businesses** → API Token `pk_…` for visitors).
 
 ```swift
 import IndoorSDK
 import SwiftUI
 
 @main
-struct MiApp: App {
+struct MyApp: App {
     init() {
         Indoorly.initialize(apiToken: "pk_…")
-        Indoorly.enableAddMoreStores(false)   // apps de clientes: siempre false
+        Indoorly.enableAddMoreStores(false)   // visitor apps: always false
     }
 
     var body: some Scene {
         WindowGroup {
             NavigationStack {
-                // Pantalla propia que presenta Indoorly.navigationView()
+                // Your screen that presents Indoorly.navigationView()
                 ContentView()
             }
         }
@@ -56,66 +56,66 @@ struct MiApp: App {
 ```
 
 ```swift
-// Presentar navegación a pantalla completa
-try Indoorly.navigationView(stops: [])   // o IDs de destinos: ["lacteos", "panaderia"]
+// Present full-screen navigation
+try Indoorly.navigationView(stops: [])   // or destination IDs: ["dairy", "bakery"]
     .onArrival { place in /* IndoorPlaceInfo */ }
-    .onVisitFinished { summary in /* duración, metros, visitados */ }
+    .onVisitFinished { summary in /* duration, meters, visited */ }
 ```
 
-La URL del API de producción va **dentro del SDK**. No la configures en la app.
+The production API URL is **baked into the SDK**. Do not configure it in the host app.
 
 ---
 
 ## Tokens
 
-| Tipo | Prefijo | Uso |
+| Kind | Prefix | Use |
 | --- | --- | --- |
-| API Token (visitantes) | `pk_…` | `Indoorly.initialize` en la app pública |
-| Admin Token | `sk_…` | Solo apps internas de staff + `enableAddMoreStores(true)` |
+| API Token (visitors) | `pk_…` | `Indoorly.initialize` in the public app |
+| Admin Token | `sk_…` | Staff-only apps + `enableAddMoreStores(true)` |
 
 ```swift
-// App visitante
+// Visitor app
 Indoorly.initialize(apiToken: "pk_…")
 Indoorly.enableAddMoreStores(false)
 
-// App staff (registrar / ampliar tienda caminando)
+// Staff app (register / extend a store by walking)
 Indoorly.initialize(apiToken: "sk_…")
 Indoorly.enableAddMoreStores(true)
-try Indoorly.surveyView(venue: .new(name: "Sucursal Centro"))
+try Indoorly.surveyView(venue: .new(name: "Downtown Store"))
     .onFinish { venue in }
     .onCancel { }
 ```
 
 ---
 
-## Personalización
+## Customization
 
-### Colores e iconos — `IndoorAppearance`
+### Colors and icons — `IndoorAppearance`
 
 ```swift
 var brand = IndoorAppearance(
-    accentColor: Color(red: 0.0, green: 0.45, blue: 0.25),   // botones, lista, chips
-    arrivalColor: Color(red: 0.13, green: 0.75, blue: 0.38), // llegada / faro
-    trailColor: Color(red: 0.13, green: 0.75, blue: 0.38),   // rastro recorrido
+    accentColor: Color(red: 0.0, green: 0.45, blue: 0.25),   // buttons, list, chips
+    arrivalColor: Color(red: 0.13, green: 0.75, blue: 0.38), // arrival / beacon
+    trailColor: Color(red: 0.13, green: 0.75, blue: 0.38),   // walked trail
     categoryIcons: [
-        "lacteos": "cup.and.saucer.fill",
-        "farmacia": "cross.case.fill",
+        "dairy": "cup.and.saucer.fill",
+        "pharmacy": "cross.case.fill",
     ],
-    layout: .withHostBackButton   // o .standard / IndoorLayout custom
+    layout: .withHostBackButton   // or .standard / custom IndoorLayout
 )
 
 Indoorly.appearance(brand)
 ```
 
-Dynamic Type y modo claro/oscuro siguen al sistema.
+Dynamic Type and light/dark mode follow the system.
 
-### Layout del chrome — `IndoorLayout`
+### Chrome layout — `IndoorLayout`
 
-Controla banners, minimapa y espacio para tu botón “Atrás” encima del SDK.
+Controls banners, mini-map, and space for your host “Back” button over the SDK.
 
 ```swift
 let layout = IndoorLayout(
-    topLeadingReserved: 56,   // hueco para back button del host
+    topLeadingReserved: 56,   // room for host back button
     topPadding: 6,
     horizontalPadding: 14,
     chromeSpacing: 10,
@@ -129,36 +129,36 @@ let layout = IndoorLayout(
 
 Indoorly.appearance(IndoorAppearance(layout: layout))
 
-// Atajo si solo necesitas hueco para un back circular:
+// Shortcut when you only need space for a circular back control:
 Indoorly.appearance(IndoorAppearance(layout: .withHostBackButton))
 ```
 
-| Propiedad | Efecto |
+| Property | Effect |
 | --- | --- |
-| `topLeadingReserved` | No dibuja banners debajo de tu chrome superior-izquierdo |
-| `showsManeuverBanner` | Instrucción de giro / distancia |
-| `showsTrackingBanner` | Estado de localización AR |
-| `showsMiniMap` | Minimapa cuando la cámara está activa |
+| `topLeadingReserved` | Keeps banners clear of top-leading host chrome |
+| `showsManeuverBanner` | Turn / distance instruction |
+| `showsTrackingBanner` | AR localization status |
+| `showsMiniMap` | Mini-map while the camera is active |
 
-### Fijar una tienda
+### Pin one venue
 
 ```swift
-Indoorly.venueID("walmart-demo")   // nil = lista todas las del token
+Indoorly.venueID("walmart-demo")   // nil = list all venues for the token
 ```
 
-### Telemetría de uso
+### Usage telemetry
 
-Por defecto el SDK reporta sesiones, llegadas y fallos al servicio Indoorly (panel de analytics).
+By default the SDK reports sessions, arrivals, and failures to Indoorly (analytics panel).
 
 ```swift
-Indoorly.telemetry(false)   // opt-out
+Indoorly.telemetry(false)   // opt out
 ```
 
 ---
 
-## Pantallas propias — `IndoorDirectory`
+## Custom screens — `IndoorDirectory`
 
-Si no quieres la UI completa de navegación y solo listar tiendas/destinos:
+If you do not want the full navigation UI and only need venues/destinations:
 
 ```swift
 let directory = try Indoorly.directory()
@@ -167,15 +167,15 @@ let venues = try await directory.venues()
 let nearby = try await directory.venues(near: coordinate, radiusMeters: 2_000)
 let places = try await directory.places(venueID: "walmart-demo")
 
-// Solo con Admin Token:
-try await directory.addPlace(venueID: "walmart-demo", name: "Vinos", category: "licores")
-try await directory.updatePlace(venueID: "walmart-demo", placeID: "lacteos", name: "Lácteos")
-try await directory.removePlace(venueID: "walmart-demo", placeID: "lacteos")
+// Admin Token only:
+try await directory.addPlace(venueID: "walmart-demo", name: "Wine", category: "liquor")
+try await directory.updatePlace(venueID: "walmart-demo", placeID: "dairy", name: "Dairy")
+try await directory.removePlace(venueID: "walmart-demo", placeID: "dairy")
 ```
 
-`IndoorPlaceInfo.x` / `.y` están en **metros del plano** de la tienda (no GPS).
+`IndoorPlaceInfo.x` / `.y` are **floor-plan meters** (not GPS).
 
-### GPS del dispositivo
+### Device GPS
 
 ```swift
 let location = IndoorLocation()
@@ -184,20 +184,18 @@ location.start()
 // location.coordinate / authorization
 ```
 
-### Capacidades del dispositivo
+### Device capabilities
 
 ```swift
 let caps = IndoorDeviceCapabilities.current
 // caps.supportsWorldTracking, caps.hasLiDAR, caps.supportsSceneDepth
 ```
 
-LiDAR no activa funciones extra en esta versión; la navegación usa grafo 2D + ARWorldMap.
+LiDAR does not enable extra features in this version; navigation uses a 2D graph + ARWorldMap.
 
 ---
 
-## Configuración avanzada (sin fachada)
-
-Si prefieres no usar `Indoorly.*`:
+## Advanced setup (without the facade)
 
 ```swift
 let config = IndoorConfiguration(
@@ -207,7 +205,7 @@ let config = IndoorConfiguration(
     appearance: .standard,
     hostOptions: IndoorHostOptions(allowsSurvey: false)
 )
-IndoorNavigationView(configuration: config, stops: ["farmacia"])
+IndoorNavigationView(configuration: config, stops: ["pharmacy"])
 ```
 
 ---
@@ -226,18 +224,18 @@ try Indoorly.navigationView()
 
 ---
 
-## Errores frecuentes
+## Common issues
 
-| Situación | Qué revisar |
+| Situation | Check |
 | --- | --- |
-| 401 / unauthorized | Token vacío, regenerado o `sk_` en app de visitantes por error |
-| No hay tiendas | El comercio aún no tiene venues en el panel |
-| Cámara no abre | Simulador o dispositivo sin ARWorldTracking; usa preview en mapa |
-| Registrar no aparece | Hace falta `sk_…` + `enableAddMoreStores(true)` |
+| 401 / unauthorized | Empty token, rotated token, or `sk_` used by mistake in a visitor app |
+| No venues | Business has no stores in the panel yet |
+| Camera does not open | Simulator or device without ARWorldTracking; map preview still works |
+| Register UI missing | Needs `sk_…` + `enableAddMoreStores(true)` |
 
 ---
 
-## Soporte
+## Support
 
-Emisión de tokens, tiendas y analytics: panel Indoorly de tu organización.  
-Versión del package: tag de este repositorio (SPM).
+Tokens, venues, and analytics: your organization’s Indoorly admin panel.  
+Package version: git tags on this repository (SPM).
