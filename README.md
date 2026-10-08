@@ -106,15 +106,17 @@ The production API URL is **baked into the SDK**. Host apps do not set it (optio
 
 ## 4. Tokens
 
-Issued in the Indoorly admin panel (**Businesses → API Token**).
+Issued in the Indoorly admin panel (**Comercios → detalle del comercio**). Tokens belong to the
+**business**, not to a single venue. You can also create scoped visitor `pk_` tokens that list
+only 1…N venues (CRM → Tokens SDK con alcance).
 
 | Kind | Prefix | Use in host app |
 | --- | --- | --- |
-| API Token (visitors) | `pk_…` | Public / consumer apps |
+| API Token (visitors) | `pk_…` | Public / consumer apps (`Indoorly.bootstrap` / `directory().venues()`) |
 | Admin Token | `sk_…` | Staff-only apps that register or extend stores |
 
 ```swift
-// Visitor app
+// Visitor app — principal or scoped pk_ of the business
 Indoorly.initialize(apiToken: "pk_…")
 Indoorly.enableAddMoreStores(false)
 
@@ -122,6 +124,8 @@ Indoorly.enableAddMoreStores(false)
 Indoorly.initialize(apiToken: "sk_…")
 Indoorly.enableAddMoreStores(true)
 ```
+
+If bootstrap returns several venues, show a store picker (or set `Indoorly.venueID("…")` to pin one).
 
 Never ship an `sk_…` token inside a public App Store build.
 

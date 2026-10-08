@@ -4,9 +4,9 @@
 // Publish from the private monorepo: scripts/publish_sdk.sh
 import PackageDescription
 
-let version = "1.0.4"
+let version = "1.0.5"
 let releaseURL = "https://github.com/Indoorly/Indoorly-iOS/releases/download/\(version)/IndoorSDK.xcframework.zip"
-let releaseChecksum = "98566e7bd9a5b86297a8afad3288beddebd2005bd06390556c6d8b4f4f975c0c"
+let releaseChecksum = "30e60c946a3ba07cac84dc6b5483c73911669de8cb755470c973d845fa9a8327"
 
 let binary: Target
 if let localPath = Context.environment["INDOOR_XCFRAMEWORK"], !localPath.isEmpty {
