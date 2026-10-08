@@ -383,6 +383,8 @@ Wire analytics, receipts, or dismissal of your `fullScreenCover` inside these ha
 
 ## 10. Custom screens with `IndoorDirectory`
 
+Tokens for the SDK (`pk_…` / `sk_…`) are issued in the Indoorly admin panel (**Uso SDK** / **Comercios**). Panel CRM APIs (users, analytics feed, search) are separate from this mobile SDK.
+
 Use the directory when you build **your own** venue / destination UI and only open the SDK for walking.
 
 ```swift
@@ -462,7 +464,15 @@ try await directory.addPlace(
 )
 try await directory.updatePlace(venueID: "walmart-demo", placeID: "dairy", name: "Dairy")
 try await directory.removePlace(venueID: "walmart-demo", placeID: "dairy")
+try await directory.updateVenue(
+    venueID: "walmart-demo",
+    name: "Walmart Downtown",
+    latitude: 19.43,
+    longitude: -99.13
+)
 ```
+
+Issue `pk_…` / `sk_…` in the Indoorly admin panel (**Tokens SDK** / **Comercios**). Panel CRM routes (users, search, analytics) are not part of this mobile package.
 
 ---
 
