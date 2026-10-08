@@ -6,7 +6,7 @@ import PackageDescription
 
 let version = "1.0.4"
 let releaseURL = "https://github.com/Indoorly/Indoorly-iOS/releases/download/\(version)/IndoorSDK.xcframework.zip"
-let releaseChecksum = "e1728e4676b928122f15c7d446e4086c1c0f6c979bc5280979d39415e89ddec4"
+let releaseChecksum = "98566e7bd9a5b86297a8afad3288beddebd2005bd06390556c6d8b4f4f975c0c"
 
 let binary: Target
 if let localPath = Context.environment["INDOOR_XCFRAMEWORK"], !localPath.isEmpty {
