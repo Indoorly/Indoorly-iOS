@@ -11,6 +11,7 @@ This package is **binary-only** (XCFramework). Engine source is not included.
 | **Integration** | Swift Package Manager |
 | **UI** | SwiftUI (`IndoorNavigationView`, `IndoorSurveyView`) |
 | **Repository** | https://github.com/Indoorly/Indoorly-iOS |
+| **Current version** | 1.1.1 |
 
 ---
 
@@ -20,20 +21,23 @@ This package is **binary-only** (XCFramework). Engine source is not included.
 2. [Permissions (Info.plist)](#2-permissions-infoplist)
 3. [Where to configure the SDK](#3-where-to-configure-the-sdk)
 4. [Tokens](#4-tokens)
-5. [Visitor app — end-to-end](#5-visitor-app--end-to-end)
-6. [Presenting navigation](#6-presenting-navigation)
-7. [Customization](#7-customization)
-8. [Pin a venue & nearby radius](#8-pin-a-venue--nearby-radius)
-9. [Callbacks](#9-callbacks)
-10. [Custom screens with IndoorDirectory](#10-custom-screens-with-indoordirectory)
-11. [Staff app — register / extend a store](#11-staff-app--register--extend-a-store)
-12. [Device GPS & capabilities](#12-device-gps--capabilities)
-13. [Advanced setup (without the facade)](#13-advanced-setup-without-the-facade)
-14. [Telemetry](#14-telemetry)
-15. [UIKit / AppDelegate apps](#15-uikit--appdelegate-apps)
-16. [API reference (public surface)](#16-api-reference-public-surface)
-17. [Common issues](#17-common-issues)
-18. [Support](#18-support)
+5. [Bootstrap (scopes & live settings)](#5-bootstrap-scopes--live-settings)
+6. [Visitor app — end-to-end](#6-visitor-app--end-to-end)
+7. [Presenting navigation](#7-presenting-navigation)
+8. [Customization](#8-customization)
+9. [Pin a venue & nearby radius](#9-pin-a-venue--nearby-radius)
+10. [Discover & resolve stores by GPS](#10-discover--resolve-stores-by-gps)
+11. [Presence (live in-store count)](#11-presence-live-in-store-count)
+12. [Callbacks](#12-callbacks)
+13. [Custom screens with IndoorDirectory](#13-custom-screens-with-indoordirectory)
+14. [Staff app — register / extend a store](#14-staff-app--register--extend-a-store)
+15. [Device GPS & capabilities](#15-device-gps--capabilities)
+16. [Advanced setup (without the facade)](#16-advanced-setup-without-the-facade)
+17. [Telemetry](#17-telemetry)
+18. [UIKit / AppDelegate apps](#18-uikit--appdelegate-apps)
+19. [API reference (public surface)](#19-api-reference-public-surface)
+20. [Common issues](#20-common-issues)
+21. [Support](#21-support)
 
 ---
 
@@ -43,14 +47,14 @@ This package is **binary-only** (XCFramework). Engine source is not included.
 
 1. **File → Add Package Dependencies…**
 2. Paste: `https://github.com/Indoorly/Indoorly-iOS.git`
-3. Choose a version (git tag, e.g. `1.0.1`)
+3. Choose a version (git tag, e.g. `1.1.1`)
 4. Add the **IndoorSDK** product to your app target
 
 ### `Package.swift`
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/Indoorly/Indoorly-iOS.git", from: "1.0.1"),
+    .package(url: "https://github.com/Indoorly/Indoorly-iOS.git", from: "1.1.1"),
 ],
 ```
 
@@ -97,6 +101,7 @@ Also at launch (optional, still before UI):
 - `Indoorly.venueID(...)`
 - `Indoorly.enableAddMoreStores(...)`
 - `Indoorly.telemetry(...)`
+- `await Indoorly.bootstrap()` — recommended when the token may span several stores
 
 Do **not** call `initialize` again from every screen. Views only present `navigationView` / `surveyView` / `directory()`.
 
@@ -106,9 +111,9 @@ The production API URL is **baked into the SDK**. Host apps do not set it (optio
 
 ## 4. Tokens
 
-Issued in the Indoorly admin panel (**Comercios → detalle del comercio**). Tokens belong to the
+Issued in the Indoorly admin panel (**Comercios → detalle del comercio** / **Uso SDK**). Tokens belong to the
 **business**, not to a single venue. You can also create scoped visitor `pk_` tokens that list
-only 1…N venues (CRM → Tokens SDK con alcance).
+only 1…N venues (**Tokens SDK con alcance**).
 
 | Kind | Prefix | Use in host app |
 | --- | --- | --- |
@@ -131,7 +136,41 @@ Never ship an `sk_…` token inside a public App Store build.
 
 ---
 
-## 5. Visitor app — end-to-end
+## 5. Bootstrap (scopes & live settings)
+
+Call once after `initialize` to learn what the token can see and which panel settings apply.
+**No SDK redeploy** is needed when the panel changes venue scope, GPS pins, discovery mode, or presence intervals.
+
+```swift
+Indoorly.initialize(apiToken: "pk_…")
+
+let boot = try await Indoorly.bootstrap()
+// boot.businessName, boot.role ("client" | "admin")
+// boot.allVenues == false → boot.venues is the allow-list from the panel
+// boot.settings.presenceHeartbeatSeconds / presenceTtlSeconds
+// boot.settings.requireNearVenueMeters  // soft geofence hint; nil = off
+
+if boot.venues.count == 1 {
+    Indoorly.venueID(boot.venues[0].id)
+} else if boot.venues.count > 1 {
+    // Show your store picker, then Indoorly.venueID(chosen.id)
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `allVenues` | `true` → every store of the business; `false` → only `venues` |
+| `venues[].discoveryMode` | `.always` or `.nearby` (GPS required for nearby) |
+| `venues[].latitude` / `.longitude` | Store GPS pin from the panel |
+| `settings.presenceHeartbeatSeconds` | How often navigation heartbeats while open |
+| `settings.presenceTtlSeconds` | How long a heartbeat counts as “in store” |
+| `settings.requireNearVenueMeters` | Optional soft geofence radius for host logic |
+
+Equivalent: `try await Indoorly.directory().bootstrap()`.
+
+---
+
+## 6. Visitor app — end-to-end
 
 ### Step A — Configure at launch
 
@@ -142,7 +181,7 @@ import SwiftUI
 @main
 struct MyApp: App {
     init() {
-        Indoorly.initialize(apiToken: "pk_…")          // from admin panel
+        Indoorly.initialize(apiToken: "pk_…")          // from admin panel (principal or scoped)
         Indoorly.enableAddMoreStores(false)
         Indoorly.telemetry(true)                       // optional; default is on
         Indoorly.appearance(
@@ -151,7 +190,7 @@ struct MyApp: App {
                 layout: .withHostBackButton            // room for your Back button
             )
         )
-        // Optional: lock to one store
+        // Optional: lock to one store, or call bootstrap() and pick from boot.venues
         // Indoorly.venueID("walmart-demo")
     }
 
@@ -257,7 +296,7 @@ Use `IndoorAppearance(layout: .withHostBackButton)` (or a custom `IndoorLayout` 
 
 ---
 
-## 6. Presenting navigation
+## 7. Presenting navigation
 
 ### Full-screen cover (typical)
 
@@ -292,7 +331,7 @@ Place IDs are the destination identifiers configured for that venue (not display
 
 ---
 
-## 7. Customization
+## 8. Customization
 
 Call `Indoorly.appearance(...)` at launch (or before presenting navigation). Dynamic Type and light/dark mode follow the system.
 
@@ -308,13 +347,15 @@ let brand = IndoorAppearance(
         "pharmacy": "cross.case.fill",
         "bakery": "birthday.cake.fill",
     ],
-    layout: .withHostBackButton   // or .standard / custom IndoorLayout
+    layout: .withHostBackButton,   // or .standard / custom IndoorLayout
+    showsArrivalIlluminate: true,  // Find My–style green wash on arrival
+    playsArrivalHaptic: true       // success vibration at each stop
 )
 
 Indoorly.appearance(brand)
 ```
 
-A place’s own icon (from the panel) wins over `categoryIcons`.
+A place’s own icon (from the panel) wins over `categoryIcons`. Set `showsArrivalIlluminate` / `playsArrivalHaptic` to `false` for a quieter arrival while the stop list still advances.
 
 ### Chrome layout — `IndoorLayout`
 
@@ -352,7 +393,7 @@ Indoorly.appearance(IndoorAppearance(layout: .withHostBackButton))
 
 ---
 
-## 8. Pin a venue & nearby radius
+## 9. Pin a venue & nearby radius
 
 ```swift
 // Show only this store (skip venue picker when the token has several venues)
@@ -365,9 +406,77 @@ Indoorly.venueID(nil)
 Indoorly.nearbyRadiusMeters(2_000)
 ```
 
+Multi-floor venues (stairs / elevators configured in the panel map builder) are handled inside navigation: the map can browse floors and routes transfer via connectors automatically. Host apps do not need extra setup.
+
 ---
 
-## 9. Callbacks
+## 10. Discover & resolve stores by GPS
+
+Each venue has a panel **discovery mode**:
+
+| Mode | Behavior |
+| --- | --- |
+| `always` | Listed for the token even without GPS (distance may be `nil`) |
+| `nearby` | Included only when the visitor is within `radiusMeters` **and** the store has a GPS pin |
+
+```swift
+import CoreLocation
+
+let directory = try Indoorly.directory()
+let coordinate = /* from IndoorLocation or CLLocationManager */
+
+// Annotate all token venues with distance (stores without GPS stay listed)
+let ranked = try await directory.venues(annotatedNear: coordinate)
+
+// Discovery list (server /v1/venues/nearby, with client-side fallback)
+let nearby = try await directory.venues(near: coordinate, radiusMeters: 2_000)
+
+// Pick the single nearest store (throws if none / ambiguous)
+do {
+    let venue = try await directory.resolve(
+        near: coordinate,
+        radiusMeters: 2_000,
+        ambiguityMeters: 40   // two stores within 40 m → ambiguousVenue
+    )
+    Indoorly.venueID(venue.id)
+} catch let error as IndoorError where error.isVenueSelectionError {
+    // .unknownVenue → none in range; .ambiguousVenue → show a picker
+}
+```
+
+`IndoorVenueInfo.distanceMeters` is filled when GPS is available. Place coordinates (`IndoorPlaceInfo.x` / `.y`) remain **floor-plan meters**, not GPS.
+
+---
+
+## 11. Presence (live in-store count)
+
+While `IndoorNavigationView` is open, the SDK heartbeats automatically using
+`bootstrap.settings.presenceHeartbeatSeconds` (panel **Uso SDK**). The admin panel
+shows live active visitors per store.
+
+For custom host screens (without opening navigation):
+
+```swift
+let directory = try Indoorly.directory()
+
+// Report that this session is at the store
+let snap = try await directory.reportPresence(
+    venueID: "walmart-demo",
+    sessionID: UUID().uuidString,   // stable per app session
+    coordinate: location.coordinate,
+    accuracyMeters: location.accuracyMeters.map { Double($0) }
+)
+print("Active visitors:", snap.activeUsers)
+
+// Read the current count
+let live = try await directory.presence(venueID: "walmart-demo")
+```
+
+TTL and heartbeat interval come from `IndoorBootstrap.settings` — change them in the panel; the next bootstrap / navigation start picks them up.
+
+---
+
+## 12. Callbacks
 
 ```swift
 try Indoorly.navigationView(stops: ["pharmacy"])
@@ -385,7 +494,7 @@ Wire analytics, receipts, or dismissal of your `fullScreenCover` inside these ha
 
 ---
 
-## 10. Custom screens with `IndoorDirectory`
+## 13. Custom screens with `IndoorDirectory`
 
 Tokens for the SDK (`pk_…` / `sk_…`) are issued in the Indoorly admin panel (**Uso SDK** / **Comercios**). Panel CRM APIs (users, analytics feed, search) are separate from this mobile SDK.
 
@@ -404,8 +513,9 @@ final class StoreBrowserModel: ObservableObject {
 
     func loadVenues() async {
         do {
-            let directory = try Indoorly.directory()
-            venues = try await directory.venues()
+            let boot = try await Indoorly.bootstrap()
+            venues = boot.venues
+            // boot.settings → presenceHeartbeatSeconds, requireNearVenueMeters, …
         } catch {
             errorMessage = String(describing: error)
         }
@@ -480,7 +590,7 @@ Issue `pk_…` / `sk_…` in the Indoorly admin panel (**Tokens SDK** / **Comerc
 
 ---
 
-## 11. Staff app — register / extend a store
+## 14. Staff app — register / extend a store
 
 Staff builds must use `sk_…` and `enableAddMoreStores(true)`.
 
@@ -557,7 +667,7 @@ Venue modes:
 
 ---
 
-## 12. Device GPS & capabilities
+## 15. Device GPS & capabilities
 
 ### GPS helper
 
@@ -590,7 +700,7 @@ On Simulator (or devices without world tracking), the **map preview** still work
 
 ---
 
-## 13. Advanced setup (without the facade)
+## 16. Advanced setup (without the facade)
 
 When you need per-screen configuration instead of the global `Indoorly` settings:
 
@@ -625,7 +735,7 @@ IndoorSurveyView(configuration: surveyConfig)
 
 ---
 
-## 14. Telemetry
+## 17. Telemetry
 
 By default the SDK reports sessions, arrivals, and failures to Indoorly (analytics panel).
 
@@ -635,7 +745,7 @@ Indoorly.telemetry(false)   // opt out — call at launch with initialize
 
 ---
 
-## 15. UIKit / AppDelegate apps
+## 18. UIKit / AppDelegate apps
 
 ### Configure in `AppDelegate`
 
@@ -680,40 +790,51 @@ final class HomeViewController: UIViewController {
 
 ---
 
-## 16. API reference (public surface)
+## 19. API reference (public surface)
 
 | API | Role |
 | --- | --- |
 | `Indoorly.initialize(apiToken:serviceURL:)` | Required once at launch |
-| `Indoorly.appearance(_:)` | Brand colors, icons, layout |
+| `Indoorly.bootstrap()` | Scoped venues + GPS + presence settings from the panel |
+| `Indoorly.appearance(_:)` | Brand colors, icons, layout, arrival illuminate / haptic |
 | `Indoorly.venueID(_:)` | Pin or clear venue |
 | `Indoorly.enableAddMoreStores(_:)` | Allow survey UI (needs `sk_…`) |
 | `Indoorly.telemetry(_:)` | Opt in/out of usage events |
 | `Indoorly.nearbyRadiusMeters(_:)` | GPS radius preference for host flows |
-| `Indoorly.navigationView(stops:)` | Full navigation UI |
+| `Indoorly.navigationView(stops:)` | Full navigation UI (auto presence heartbeats) |
 | `Indoorly.surveyView(venue:)` | Walking survey / register UI |
-| `Indoorly.directory()` | Venues & places API for custom screens |
+| `Indoorly.directory()` | Venues, discovery, resolve, presence, places |
 | `Indoorly.configuration(venueID:)` | Build `IndoorConfiguration` from facade |
+| `IndoorDirectory.bootstrap()` | Same as `Indoorly.bootstrap()` |
+| `IndoorDirectory.venues(annotatedNear:)` | All scoped venues + distance |
+| `IndoorDirectory.venues(near:radiusMeters:)` | Discovery list (respects `.always` / `.nearby`) |
+| `IndoorDirectory.resolve(near:radiusMeters:ambiguityMeters:)` | Single nearest store |
+| `IndoorDirectory.reportPresence` / `presence` | Live in-store count |
 | `IndoorNavigationView` | Navigation UI (advanced init) |
 | `IndoorSurveyView` | Survey UI (advanced init) |
 | `IndoorAppearance` / `IndoorLayout` | Visual customization |
+| `IndoorBootstrap` / `IndoorSDKSettings` | Bootstrap snapshot + panel settings |
+| `IndoorDiscoveryMode` | `.always` / `.nearby` |
+| `IndoorPresenceInfo` | Live visitor count |
 | `IndoorPlaceInfo` / `IndoorVenueInfo` / `IndoorVisitSummary` | Models |
-| `IndoorLocation` | When-in-use GPS helper |
+| `IndoorLocation` | When-in-use GPS helper (`coordinate`, `accuracyMeters`) |
 | `IndoorDeviceCapabilities` | AR / LiDAR probes |
-| `IndoorError` | `unauthorized`, `adminTokenRequired`, `unknownVenue`, … |
+| `IndoorError` | `unauthorized`, `adminTokenRequired`, `unknownVenue`, `ambiguousVenue`, … |
 
 Readable state after configure: `Indoorly.isConfigured`, `apiToken`, `configuredVenueID`, `configuredAppearance`, `addMoreStoresEnabled`, etc.
 
 ---
 
-## 17. Common issues
+## 20. Common issues
 
 | Situation | Check |
 | --- | --- |
-| Xcode shows nothing after `Indoorly.` | Update package to **1.0.1+**, Clean Build Folder, rebuild |
+| Xcode shows nothing after `Indoorly.` | Update package to **1.1.1+**, Clean Build Folder, rebuild |
 | 401 / unauthorized | Empty token, rotated token, or `sk_` used by mistake in a visitor app |
 | `Indoorly.navigationView` throws / nil | `initialize` was never called, or token string is empty |
-| No venues | Business has no stores in the admin panel yet |
+| No venues | Business has no stores, or the `pk_…` is scoped to an empty allow-list — check bootstrap |
+| `ambiguousVenue` on resolve | Two stores within `ambiguityMeters`; show a picker |
+| Nearby list empty | Store set to `discoveryMode: nearby` without GPS, or visitor outside radius |
 | Camera does not open | Simulator or device without `ARWorldTracking`; map preview still works |
 | Register / survey UI missing | Needs `sk_…` **and** `enableAddMoreStores(true)` |
 | Banners under your Back button | Use `IndoorLayout.withHostBackButton` or raise `topLeadingReserved` |
@@ -721,7 +842,7 @@ Readable state after configure: `Indoorly.isConfigured`, `apiToken`, `configured
 
 ---
 
-## 18. Support
+## 21. Support
 
 - **Tokens, venues, destinations, analytics:** your organization’s Indoorly admin panel  
 - **Package versions:** git tags on this repository (SPM)  
